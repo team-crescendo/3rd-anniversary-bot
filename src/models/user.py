@@ -7,4 +7,4 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(BigInteger, primary_key=True)
-    sticker = Column(Integer)
+    sticker = Column(Integer, default=0, nullable=False)

@@ -15,7 +15,7 @@ load_dotenv()
 
 
 class DiscordBot(commands.Bot):
-    extension_list = ["extensions.admin"]
+    extension_list = ["extensions.admin", "extensions.sticker"]
 
     async def on_ready(self):
         logger.info(f"Logged in as {self.user}")
@@ -24,7 +24,7 @@ class DiscordBot(commands.Bot):
         logger.exception("")
 
     def __init__(self):
-        super().__init__(commands.when_mentioned_or("!"))
+        super().__init__(commands.when_mentioned_or("ㅋ "))
         for ext in self.extension_list:
             self.load_extension(ext)
 

@@ -1,4 +1,5 @@
 import os
+from contextlib import contextmanager
 
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -10,3 +11,16 @@ engine = create_engine(
 Base = declarative_base()
 
 Session = sessionmaker(bind=engine)
+
+
+@contextmanager
+def session_scope():
+    session = Session()
+    try:
+        yield session
+        session.commit()
+    except:  # noqa: E722
+        session.rollback()
+        raise
+    finally:
+        session.close()
