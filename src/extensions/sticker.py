@@ -1,13 +1,9 @@
-from typing import Optional
-
+import discord
 from discord.ext import commands
 
 from models import session_scope
-from models.user import User
-
-
-def get_user(session, user_id) -> Optional[User]:
-    return session.query(User).filter(User.id == user_id).one_or_none()
+from models.user import add_sticker, get_user
+from utils.permission import is_admin
 
 
 class Sticker(commands.Cog):
@@ -18,9 +14,18 @@ class Sticker(commands.Cog):
     async def show_sticker(self, ctx):
         with session_scope() as session:
             user = get_user(session, ctx.author.id)
-            sticker = user.sticker if user is not None else 0
+            if user is None:
+                await ctx.send("아직 스티커를 받지 않았습니다.")
+                return
 
-            await ctx.send(f"스티커를 `{sticker}`장 보유하셨습니다.")
+            await ctx.send(f"스티커를 `{user.sticker}`장 보유하셨습니다.")
+
+    @commands.command(name="지급")
+    @commands.check(is_admin)
+    async def give_sticker(self, ctx, member: discord.Member, amount: int):
+        with session_scope() as session:
+            add_sticker(session, member.id, amount)
+            await ctx.send(f"{member}님께 스티커 `{amount}`장을 지급했습니다.")
 
 
 def setup(bot):
