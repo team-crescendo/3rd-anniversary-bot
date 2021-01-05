@@ -5,6 +5,7 @@ import psutil
 from discord.ext import commands
 
 from interface import is_confirmed
+from models import Base, engine
 
 
 class Admin(commands.Cog):
@@ -37,6 +38,11 @@ class Admin(commands.Cog):
         if await is_confirmed(ctx, prompt):
             await ctx.send("OK, bye!")
             await ctx.bot.logout()
+
+    @commands.command()
+    async def migrate(self, ctx):
+        Base.metadata.create_all(engine)
+        await ctx.send("Migration finished!")
 
 
 def setup(bot):
