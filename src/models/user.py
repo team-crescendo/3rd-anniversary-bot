@@ -1,8 +1,10 @@
 from typing import Optional
 
 from sqlalchemy import BigInteger, Column, Integer
+from sqlalchemy.orm import relationship
 
 from . import Base
+from .event import events
 
 
 class User(Base):
@@ -10,6 +12,8 @@ class User(Base):
 
     id = Column(BigInteger, primary_key=True)
     sticker = Column(Integer, default=0, nullable=False)
+
+    rules = relationship("Rule", secondary=events, back_populates="users")
 
 
 def get_user(session, user_id: int) -> Optional[User]:

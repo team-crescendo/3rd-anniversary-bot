@@ -1,4 +1,6 @@
+from inspect import trace
 import os
+import traceback
 from contextlib import contextmanager
 
 from sqlalchemy import create_engine
@@ -21,6 +23,7 @@ def session_scope():
         session.commit()
     except:  # noqa: E722
         session.rollback()
+        traceback.print_exc()
         raise
     finally:
         session.close()

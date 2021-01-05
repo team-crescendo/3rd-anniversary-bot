@@ -3,7 +3,7 @@ from discord.ext import commands
 
 from models import session_scope
 from models.user import add_sticker, get_user
-from utils.permission import is_admin
+from utils.permission import check_admin
 
 
 class Sticker(commands.Cog):
@@ -21,7 +21,7 @@ class Sticker(commands.Cog):
             await ctx.send(f"스티커를 `{user.sticker}`장 보유하셨습니다.")
 
     @commands.command(name="지급")
-    @commands.check(is_admin)
+    @commands.check(check_admin)
     async def give_sticker(self, ctx, member: discord.Member, amount: int):
         with session_scope() as session:
             add_sticker(session, member.id, amount)

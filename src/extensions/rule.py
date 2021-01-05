@@ -1,9 +1,12 @@
+import os
+
 from typing import Optional
 import discord
 from discord.ext import commands
 
 from models import session_scope
 from models.rule import Rule, get_rule, list_all_rules
+from models.user import User, get_user
 from utils.permission import is_admin
 
 
@@ -11,8 +14,51 @@ class RuleManager(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    @property
+    def update_channel(self) -> discord.TextChannel:
+        return self.bot.get_channel(int(os.getenv("UPDATE_CHANNEL")))
+
     def cog_check(self, ctx):
-        return is_admin(ctx)
+        return is_admin(ctx.author)
+
+    @commands.Cog.listener()
+    async def on_reaction_add(self, reaction: discord.Reaction, user: discord.Member):
+        with session_scope() as session:
+            if is_admin(user):
+                author = reaction.message.author
+                recipient = get_user(session, author.id)
+                if recipient is None:
+                    recipient = User(id=author.id)
+
+                rules = (
+                    session.query(Rule)
+                    .filter_by(
+                        by_admin=True,
+                        channel_id=reaction.message.channel.id,
+                        emoji=str(reaction.emoji),
+                    )
+                    .filter(~Rule.users.any(id=recipient.id))
+                    .all()
+                )
+
+                if not rules:
+                    return
+
+                sticker_sum = 0
+                for rule in rules:
+                    recipient.rules.append(rule)
+                    sticker_sum += rule.reward_sticker
+                    if rule.reward_role_id is not None:
+                        print(reaction.message.guild.get_role(rule.reward_role_id))
+                        await author.add_roles(
+                            reaction.message.guild.get_role(rule.reward_role_id)
+                        )
+
+                recipient.sticker += sticker_sum
+                await self.update_channel.send(
+                    f"{reaction.message.author.mention}, 스티커 {sticker_sum}장을 얻으셨습니다."
+                )
+                return
 
     @commands.command(name="규칙목록")
     async def list_rules(self, ctx):

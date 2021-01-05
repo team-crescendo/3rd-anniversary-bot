@@ -1,8 +1,10 @@
 from typing import List, Optional
 
 from sqlalchemy import BigInteger, Boolean, Column, Integer, String
+from sqlalchemy.orm import relationship
 
 from . import Base
+from .event import events
 
 
 class Rule(Base):
@@ -18,6 +20,8 @@ class Rule(Base):
     message_id = Column(BigInteger)
     channel_id = Column(BigInteger)
     emoji = Column(String(50))
+
+    users = relationship("User", secondary=events, back_populates="rules")
 
     def __repr__(self):
         if self.by_admin:
