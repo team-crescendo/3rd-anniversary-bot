@@ -3,6 +3,7 @@ import logging
 import logging.config
 import os
 
+import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
@@ -22,6 +23,10 @@ class DiscordBot(commands.Bot):
 
     async def on_error(self, event, *args, **kwargs):
         logger.exception("")
+
+    @property
+    def guild(self) -> discord.Guild:
+        return self.get_guild(int(os.getenv("GUILD")))
 
     def __init__(self):
         super().__init__(commands.when_mentioned_or("ㅋ "))

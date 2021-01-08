@@ -22,47 +22,50 @@ class RuleManager(commands.Cog):
         return is_admin(ctx.author)
 
     @commands.Cog.listener()
-    async def on_reaction_add(self, reaction: discord.Reaction, user: discord.Member):
-        if user.bot:
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
+        if payload.user_id == self.bot.user.id:
+            return
+
+        if payload.guild_id != self.bot.guild.id:
             return
 
         with session_scope() as session:
-            if is_admin(user):
-                user_id = reaction.message.author.id
+            attacher = await self.bot.guild.fetch_member(payload.user_id)
+            if is_admin(attacher):
+                channel = await self.bot.fetch_channel(payload.channel_id)
+                recipient = (await channel.fetch_message(payload.message_id)).author
                 await self.apply_rules(
                     await self.get_rules_by_admin_reaction(
-                        session, user_id, reaction.message, str(reaction.emoji)
+                        session, recipient.id, payload.channel_id, str(payload.emoji)
                     ),
-                    get_or_create_user(session, user_id),
-                    reaction.message.author,
+                    get_or_create_user(session, recipient.id),
+                    recipient,
                 )
 
-            user_id = user.id
-            print(user.id)
             await self.apply_rules(
                 await self.get_rules_by_self_reaction(
-                    session, user_id, reaction.message, str(reaction.emoji)
+                    session, attacher.id, payload.message_id, str(payload.emoji)
                 ),
-                get_or_create_user(session, user_id),
-                user,
+                get_or_create_user(session, attacher.id),
+                attacher,
             )
 
     async def get_rules_by_admin_reaction(
-        self, session, user_id: str, message: discord.Message, emoji: str
+        self, session, user_id: int, channel_id: int, emoji: str
     ) -> List[Rule]:
         return (
             session.query(Rule)
-            .filter_by(by_admin=True, channel_id=message.channel.id, emoji=emoji)
+            .filter_by(by_admin=True, channel_id=channel_id, emoji=emoji)
             .filter(~Rule.users.any(id=user_id))
             .all()
         )
 
     async def get_rules_by_self_reaction(
-        self, session, user_id: str, message: discord.Message, emoji: str
+        self, session, user_id: int, message_id: int, emoji: str
     ) -> List[Rule]:
         return (
             session.query(Rule)
-            .filter_by(by_admin=False, message_id=message.id, emoji=emoji)
+            .filter_by(by_admin=False, message_id=message_id, emoji=emoji)
             .filter(~Rule.users.any(id=user_id))
             .all()
         )
