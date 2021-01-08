@@ -82,11 +82,29 @@ class RuleManager(commands.Cog):
                     self.update_channel.guild.get_role(rule.reward_role_id)
                 )
 
-        recipient.sticker += sticker_sum
-        if sticker_sum > 0:
-            await self.update_channel.send(
-                f"{author.mention}, 스티커 {sticker_sum}장을 얻으셨습니다."
+        if sticker_sum == 0:
+            return
+
+        old_sticker = recipient.sticker
+        recipient.sticker = min(old_sticker + sticker_sum, 20)
+
+        if old_sticker == 0:
+            content = (
+                f"{author.mention}, **팀 크레센도 3주년 이벤트**에 참여하신 것을 환영합니다!\n"
+                + "이 채널에서 `ㅋ 스티커` 명령어로 스티커 개수를 확인할 수 있어요."
             )
+        elif old_sticker + sticker_sum > recipient.sticker:
+            content = (
+                f"{author.mention}, 스티커 {sticker_sum}장을 받았습니다!\n"
+                + "현재 스티커를 `20`장 (**최대 장수**) 갖고 있습니다."
+            )
+        else:
+            content = (
+                f"{author.mention}, 스티커 {sticker_sum}장을 받았습니다!\n"
+                + f"현재 스티커를 `{recipient.sticker}`장 갖고 있습니다."
+            )
+
+        await self.update_channel.send(content)
 
     @commands.command(name="규칙목록")
     async def list_rules(self, ctx):
@@ -121,6 +139,7 @@ class RuleManager(commands.Cog):
 
             session.add(rule)
             session.commit()
+            self.bot.logger.info("rule add: " + repr(rule))
             await ctx.send(f"규칙 #{rule.id} 추가됨!")
 
     @commands.command(name="반응추가", brief="<이름> <메시지URL> <:이모지:> [스티커개수] [@보상 역할]")
@@ -146,6 +165,7 @@ class RuleManager(commands.Cog):
 
             session.add(rule)
             session.commit()
+            self.bot.logger.info("rule add: " + repr(rule))
             await message.add_reaction(emoji)
             await ctx.send(f"규칙 #{rule.id} 추가됨!")
 
@@ -158,6 +178,7 @@ class RuleManager(commands.Cog):
                 return
 
             session.delete(rule)
+            self.bot.logger.info("rule delete: " + repr(rule))
             await ctx.send(f"규칙 #{rule.id} 삭제함!")
 
 

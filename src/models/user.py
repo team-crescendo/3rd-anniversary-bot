@@ -7,6 +7,9 @@ from . import Base
 from .event import events
 
 
+STICKER_MAX = 20
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -14,6 +17,9 @@ class User(Base):
     sticker = Column(Integer, default=0, nullable=False)
 
     rules = relationship("Rule", secondary=events, back_populates="users")
+
+    def __repr__(self) -> str:
+        return f"<User {self.id}, sticker={self.sticker}>"
 
 
 def get_user(session, user_id: int) -> Optional[User]:
