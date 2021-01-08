@@ -20,6 +20,17 @@ def get_user(session, user_id: int) -> Optional[User]:
     return session.query(User).filter(User.id == user_id).one_or_none()
 
 
+def get_or_create_user(session, user_id: int) -> User:
+    user = get_user(session, user_id)
+    if user is not None:
+        return user
+
+    user = User(id=user_id)
+    session.add(user)
+    session.commit()
+    return user
+
+
 def add_sticker(session, user_id: int, amount: int):
     user = get_user(session, user_id)
     if user is None:

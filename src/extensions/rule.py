@@ -1,12 +1,12 @@
 import os
 
-from typing import Optional
+from typing import List, Optional
 import discord
 from discord.ext import commands
 
 from models import session_scope
 from models.rule import Rule, get_rule, list_all_rules
-from models.user import User, get_user
+from models.user import User, get_or_create_user
 from utils.permission import is_admin
 
 
@@ -23,42 +23,67 @@ class RuleManager(commands.Cog):
 
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction: discord.Reaction, user: discord.Member):
+        if user.bot:
+            return
+
         with session_scope() as session:
             if is_admin(user):
-                author = reaction.message.author
-                recipient = get_user(session, author.id)
-                if recipient is None:
-                    recipient = User(id=author.id)
-
-                rules = (
-                    session.query(Rule)
-                    .filter_by(
-                        by_admin=True,
-                        channel_id=reaction.message.channel.id,
-                        emoji=str(reaction.emoji),
-                    )
-                    .filter(~Rule.users.any(id=recipient.id))
-                    .all()
+                user_id = reaction.message.author.id
+                await self.apply_rules(
+                    await self.get_rules_by_admin_reaction(
+                        session, user_id, reaction.message, str(reaction.emoji)
+                    ),
+                    get_or_create_user(session, user_id),
+                    reaction.message.author,
                 )
 
-                if not rules:
-                    return
+            user_id = user.id
+            print(user.id)
+            await self.apply_rules(
+                await self.get_rules_by_self_reaction(
+                    session, user_id, reaction.message, str(reaction.emoji)
+                ),
+                get_or_create_user(session, user_id),
+                user,
+            )
 
-                sticker_sum = 0
-                for rule in rules:
-                    recipient.rules.append(rule)
-                    sticker_sum += rule.reward_sticker
-                    if rule.reward_role_id is not None:
-                        print(reaction.message.guild.get_role(rule.reward_role_id))
-                        await author.add_roles(
-                            reaction.message.guild.get_role(rule.reward_role_id)
-                        )
+    async def get_rules_by_admin_reaction(
+        self, session, user_id: str, message: discord.Message, emoji: str
+    ) -> List[Rule]:
+        return (
+            session.query(Rule)
+            .filter_by(by_admin=True, channel_id=message.channel.id, emoji=emoji)
+            .filter(~Rule.users.any(id=user_id))
+            .all()
+        )
 
-                recipient.sticker += sticker_sum
-                await self.update_channel.send(
-                    f"{reaction.message.author.mention}, 스티커 {sticker_sum}장을 얻으셨습니다."
+    async def get_rules_by_self_reaction(
+        self, session, user_id: str, message: discord.Message, emoji: str
+    ) -> List[Rule]:
+        return (
+            session.query(Rule)
+            .filter_by(by_admin=False, message_id=message.id, emoji=emoji)
+            .filter(~Rule.users.any(id=user_id))
+            .all()
+        )
+
+    async def apply_rules(
+        self, rules: List[Rule], recipient: User, author: discord.User
+    ):
+        sticker_sum = 0
+        for rule in rules:
+            recipient.rules.append(rule)
+            sticker_sum += rule.reward_sticker
+            if rule.reward_role_id is not None:
+                await author.add_roles(
+                    self.update_channel.guild.get_role(rule.reward_role_id)
                 )
-                return
+
+        recipient.sticker += sticker_sum
+        if sticker_sum > 0:
+            await self.update_channel.send(
+                f"{author.mention}, 스티커 {sticker_sum}장을 얻으셨습니다."
+            )
 
     @commands.command(name="규칙목록")
     async def list_rules(self, ctx):
@@ -71,7 +96,7 @@ class RuleManager(commands.Cog):
             await ctx.send(content, allowed_mentions=discord.AllowedMentions.none())
 
     @commands.command(name="규칙추가", brief="<이름> <#채널명> <:이모지:> [스티커 개수] [@보상 역할]")
-    async def add_rule(
+    async def add_rule_by_admin(
         self,
         ctx,
         name: str,
@@ -93,6 +118,32 @@ class RuleManager(commands.Cog):
 
             session.add(rule)
             session.commit()
+            await ctx.send(f"규칙 #{rule.id} 추가됨!")
+
+    @commands.command(name="반응추가", brief="<이름> <메시지URL> <:이모지:> [스티커개수] [@보상 역할]")
+    async def add_rule_by_self(
+        self,
+        ctx,
+        name: str,
+        message: discord.Message,
+        emoji: str,
+        reward_sticker: Optional[int],
+        reward_role: Optional[discord.Role],
+    ):
+        with session_scope() as session:
+            rule = Rule(
+                name=name, by_admin=False, message_id=message.id, emoji=str(emoji)
+            )
+
+            if reward_sticker is not None:
+                rule.reward_sticker = reward_sticker
+
+            if reward_role is not None:
+                rule.reward_role_id = reward_role.id
+
+            session.add(rule)
+            session.commit()
+            await message.add_reaction(emoji)
             await ctx.send(f"규칙 #{rule.id} 추가됨!")
 
     @commands.command(name="규칙삭제")
