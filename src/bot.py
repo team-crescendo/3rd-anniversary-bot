@@ -15,7 +15,12 @@ load_dotenv()
 
 
 class DiscordBot(commands.Bot):
-    extension_list = ["extensions.admin", "extensions.sticker", "extensions.rule"]
+    extension_list = [
+        "extensions.admin",
+        "extensions.sticker",
+        "extensions.rule",
+        "extensions.quiz",
+    ]
 
     async def on_ready(self):
         self.logger.info(f"Logged in as {self.user}")
@@ -28,7 +33,7 @@ class DiscordBot(commands.Bot):
         return self.get_guild(int(os.getenv("GUILD")))
 
     def __init__(self, logger):
-        super().__init__(commands.when_mentioned_or("ㅋ "))
+        super().__init__(commands.when_mentioned_or("ㅋ ", "crsd "))
         self.logger = logger
         for ext in self.extension_list:
             self.load_extension(ext)

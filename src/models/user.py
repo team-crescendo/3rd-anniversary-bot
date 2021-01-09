@@ -42,4 +42,4 @@ def add_sticker(session, user_id: int, amount: int):
     if user is None:
         session.add(User(id=user_id, sticker=amount))
     else:
-        user.sticker += amount
+        user.sticker = min(STICKER_MAX, user.sticker + amount)
