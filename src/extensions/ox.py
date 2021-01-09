@@ -1,7 +1,7 @@
 import asyncio
 import json
 import os
-from typing import Set, Tuple
+from typing import List, Set, Optional, Tuple
 
 import discord
 from discord.ext import commands
@@ -34,6 +34,7 @@ class OXManager(commands.Cog):
         with open("src/resources/ox.json", encoding="utf-8") as f:
             self.questions = json.load(f)
         self.waiting_message = None
+        self.interrupt = False
 
     @property
     def ox_channel(self) -> discord.TextChannel:
@@ -50,7 +51,7 @@ class OXManager(commands.Cog):
         await ctx.send("`crsd ox시작` 명령어로 시작할 수 있습니다.")
 
     @commands.command(name="ox시작")
-    async def start_ox(self, ctx):
+    async def start_ox(self, ctx, index: Optional[int] = 0):
         m = await self.ox_channel.fetch_message(self.waiting_message.id)
         o, x = await get_response(m)
         if not o:
@@ -65,11 +66,17 @@ class OXManager(commands.Cog):
                 + " ".join([f"<@!{user_id}>" for user_id in o])[:1000]
             )
 
-        await self.run_ox(o)
+        self.interrupt = False
+        await self.run_ox(o, self.questions[index:])
 
-    async def run_ox(self, survivors: Set[int]):
-        for index, data in enumerate(self.questions):
-            m = await self.send_prompt(f"`#{index}` {data['question']}")
+    @commands.command(name="ox종료")
+    async def stop_ox(self, ctx):
+        self.interrupt = True
+        await ctx.send("ox퀴즈 종료 예약 요청을 진행했습니다.")
+
+    async def run_ox(self, survivors: Set[int], questions: List[dict]):
+        for index, data in enumerate(questions):
+            m = await self.send_prompt(f"`#{index + 1}` {data['question']}")
             await self.wait(m)
             m = await self.ox_channel.fetch_message(m.id)
             o, x = await get_response(m)
@@ -86,7 +93,16 @@ class OXManager(commands.Cog):
                 "**< 생존자 명단 >**\n"
                 + " ".join([f"<@!{user_id}>" for user_id in survivors])[:1000]
             )
-            await asyncio.sleep(10)
+
+            if len(survivors) == 1:
+                await self.ox_channel.send("최후의 생존자가 남아 게임을 종료합니다!")
+                return
+
+            if self.interrupt:
+                await self.ox_channel.send("관리자에 의해 퀴즈 게임을 종료합니다!")
+                return
+
+            await asyncio.sleep(5)
 
         await self.ox_channel.send("모든 문제를 소진했습니다!")
 
@@ -94,11 +110,11 @@ class OXManager(commands.Cog):
         content = message.content
 
         remaining_time = 10
-        for time in [5, 2, 1, 1]:
+        for time in [4, 2, 1, 1, 1]:
             await asyncio.sleep(time)
             remaining_time -= time
             asyncio.create_task(
-                message.edit(content=content + f"({remaining_time}초 남음)")
+                message.edit(content=content + f" (`{remaining_time - 1}초` 남음)")
             )
 
         await asyncio.sleep(remaining_time)
