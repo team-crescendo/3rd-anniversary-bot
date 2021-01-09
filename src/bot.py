@@ -20,6 +20,7 @@ class DiscordBot(commands.Bot):
         "extensions.sticker",
         "extensions.rule",
         "extensions.quiz",
+        "extensions.ox",
     ]
 
     async def on_ready(self):

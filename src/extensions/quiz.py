@@ -1,6 +1,5 @@
 import json
 import os
-import re
 from io import BytesIO
 from random import choice
 
