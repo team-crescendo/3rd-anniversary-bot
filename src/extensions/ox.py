@@ -102,15 +102,15 @@ class OXManager(commands.Cog):
                 await self.ox_channel.send("관리자에 의해 퀴즈 게임을 종료합니다!")
                 return
 
-            await asyncio.sleep(5)
+            await asyncio.sleep(10)
 
         await self.ox_channel.send("모든 문제를 소진했습니다!")
 
     async def wait(self, message: discord.Message):
         content = message.content
 
-        remaining_time = 10
-        for time in [4, 2, 1, 1, 1]:
+        remaining_time = 20
+        for time in [4, 5, 5, 2, 1, 1, 1]:
             await asyncio.sleep(time)
             remaining_time -= time
             asyncio.create_task(
