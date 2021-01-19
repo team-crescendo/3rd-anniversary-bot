@@ -21,6 +21,7 @@ class DiscordBot(commands.Bot):
         "extensions.rule",
         "extensions.quiz",
         "extensions.ox",
+        "extensions.reward",
     ]
 
     async def on_ready(self):

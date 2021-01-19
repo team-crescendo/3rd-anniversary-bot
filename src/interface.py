@@ -17,3 +17,18 @@ async def is_confirmed(ctx: commands.Context, message: discord.Message) -> bool:
         return reaction.emoji == "⭕"
     except asyncio.TimeoutError:
         return False
+
+
+async def wait_for_reaction(
+    ctx: commands.Context, message: discord.Message, emoji: str
+):
+    await message.add_reaction(emoji)
+
+    def _check(reaction, user):
+        return (
+            reaction.message.id == message.id
+            and user == ctx.author
+            and str(reaction) == emoji
+        )
+
+    await ctx.bot.wait_for("reaction_add", check=_check)
