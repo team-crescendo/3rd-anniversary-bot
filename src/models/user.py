@@ -1,6 +1,6 @@
 from typing import Optional, Tuple
 
-from sqlalchemy import BigInteger, Column, Integer
+from sqlalchemy import Boolean, BigInteger, Column, Integer
 from sqlalchemy.orm import relationship
 
 from . import Base
@@ -15,6 +15,7 @@ class User(Base):
 
     id = Column(BigInteger, primary_key=True)
     sticker = Column(Integer, default=0, nullable=False)
+    get_reward = Column(Boolean, default=False, nullable=False)
 
     rules = relationship("Rule", secondary=events, back_populates="users")
 

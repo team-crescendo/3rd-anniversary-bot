@@ -11,12 +11,19 @@ from interface import wait_for_multiple_reactions, wait_for_reaction
 from models import session_scope
 from models.user import add_sticker, get_user
 from models.xsi_reward import XsiReward, get_xsi_reward
+from utils.forte import ForteError, give_forte_point
 from utils.permission import check_admin
 
 
 EMOJI_OK = "🙆"
 EMOJI_KEYCAP_1 = "1️⃣"
 EMOJI_KEYCAP_2 = "2️⃣"
+
+forte_embed = discord.Embed(
+    title="포르테 상점 안내",
+    description="[FORTE 소개](https://cafe.naver.com/teamcrescendocafe/book5101938/699)\n"
+    "[상점 방문하기](https://forte.team-crescendo.me/login/discord)",
+)
 
 
 def timedelta_to_string(td: timedelta) -> str:
@@ -86,6 +93,8 @@ class RewardManager(commands.Cog):
                 description += f"{EMOJI_KEYCAP_2} **현물 스티커로 교환** (국내 한정 우편 발송)"
                 emojis.append(EMOJI_KEYCAP_2)
 
+        assert sticker <= 20
+
         prompt = await ctx.send(
             f"{ctx.author.mention}, 보상을 교환할 방법을 선택해주세요.\n"
             "⚠️ **__`한 번 선택하면 다시 바꿀 수 없습니다!!`__**",
@@ -96,7 +105,39 @@ class RewardManager(commands.Cog):
         selection = await wait_for_multiple_reactions(ctx, prompt, emojis)
 
         if selection == EMOJI_KEYCAP_1:
-            print("POINT")  # TODO: 구현하기
+            with session_scope() as session:
+                user = get_user(session, ctx.author.id)
+                if user.get_reward:
+                    await ctx.send(f"{ctx.author.mention}, 이미 보상을 선택했습니다.")
+                    return
+
+                user.get_reward = True
+                session.commit()
+
+                try:
+                    receipt_id = await give_forte_point(ctx.author.id, 5 * sticker)
+                    self.bot.logger.info(
+                        f"reward {ctx.author.id} - point {5 * sticker}, receipt_id {receipt_id}"
+                    )
+                except ForteError as e:
+                    user.get_reward = False
+                    self.bot.logger.warning(f"reward {ctx.author.id} - forte_fail {e}")
+                    if e.status == 404:
+                        await ctx.send(
+                            f"{ctx.author.mention}, 포르테 상점에서 디스코드로 로그인 한 뒤 다시 시도하세요.",
+                            embed=forte_embed,
+                        )
+                        return
+
+                    await ctx.send(
+                        f"{ctx.author.mention}, 알 수 없는 에러로 포르테 포인트 지급에 실패했습니다. 나중에 다시 시도해주세요."
+                    )
+                    return
+
+                await ctx.send(
+                    f"{ctx.author.mention}, {5 * sticker}<:fortepoint:737564157473194014>를 드렸습니다!",
+                    embed=forte_embed,
+                )
         elif selection == EMOJI_KEYCAP_2:
             # TODO: 선착순 여부도 확인, 구글 폼 링크를 생성
             print("STICKER")
