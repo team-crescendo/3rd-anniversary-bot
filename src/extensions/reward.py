@@ -82,7 +82,7 @@ class RewardManager(commands.Cog):
 
         if sticker >= 10:
             remaining_time = (
-                datetime.fromisoformat("2021-01-20T10:00:00") - datetime.now()
+                datetime.fromisoformat("2021-01-20T21:00:00") - datetime.now()
             )
             if remaining_time > timedelta(0):
                 description += (
