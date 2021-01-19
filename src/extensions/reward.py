@@ -68,6 +68,13 @@ class RewardManager(commands.Cog):
 
         buffer.close()
 
+    @commands.command(name="보상현황")
+    async def reward_status(self, ctx):
+        with session_scope() as session:
+            await ctx.send(
+                f"{ctx.author.mention}, {count_formlinks(session)}명이 **현물 스티커 교환**을 신청했습니다."
+            )
+
     @commands.command(name="유저검색")
     @commands.check(check_admin)
     async def reward_test(self, ctx, formlink: str):
