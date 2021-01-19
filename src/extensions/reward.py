@@ -1,15 +1,19 @@
 import csv
+import os
+import string
 from datetime import datetime, timedelta
-from math import ceil
-from typing import Awaitable, Optional
 from io import BytesIO, TextIOWrapper
+from math import ceil
+from random import choice
+from typing import Awaitable, Optional
+from urllib import parse
 
 import discord
 from discord.ext import commands
 from interface import wait_for_multiple_reactions, wait_for_reaction
 
 from models import session_scope
-from models.user import add_sticker, get_user
+from models.user import add_sticker, count_formlinks, get_user, search_by_formlink
 from models.xsi_reward import XsiReward, get_xsi_reward
 from utils.forte import ForteError, give_forte_point
 from utils.permission import check_admin
@@ -25,6 +29,8 @@ forte_embed = discord.Embed(
     "[상점 방문하기](https://forte.team-crescendo.me/login/discord)",
 )
 
+FORMLINK_MAX = 100
+
 
 def timedelta_to_string(td: timedelta) -> str:
     if td.total_seconds() < 60:
@@ -36,6 +42,10 @@ def timedelta_to_string(td: timedelta) -> str:
 
     hours, minutes = divmod(minutes, 60)
     return f"{hours}시간 {minutes}분 {seconds}초"
+
+
+def make_random_string(size: int = 6) -> str:
+    return "".join(choice(string.ascii_lowercase) for _ in range(size))
 
 
 class RewardManager(commands.Cog):
@@ -58,6 +68,17 @@ class RewardManager(commands.Cog):
 
         buffer.close()
 
+    @commands.command(name="유저검색")
+    @commands.check(check_admin)
+    async def reward_test(self, ctx, formlink: str):
+        with session_scope() as session:
+            user = search_by_formlink(session, formlink)
+            if user is None:
+                await ctx.send(f"{ctx.author.mention}, 해당하는 사용자를 찾지 못했습니다.")
+                return
+
+            await ctx.send(f"{ctx.author.mention}, {user}")
+
     @commands.command(name="보상")
     async def get_reward(self, ctx):
         xsi_prompt = self._check_and_give_xsi_reward(ctx)
@@ -68,6 +89,14 @@ class RewardManager(commands.Cog):
             user = get_user(session, ctx.author.id)
             if user is None:
                 await ctx.send(f"{ctx.author.mention}, 이벤트에 참여한 기록이 없습니다.")
+                return
+
+            if user.formlink is not None:
+                await self.send_formlink(ctx, user.get_info())
+                return
+
+            if user.get_reward:
+                await ctx.send(f"{ctx.author.mention}, 이미 보상을 선택했습니다.")
                 return
 
             sticker = user.sticker
@@ -104,13 +133,17 @@ class RewardManager(commands.Cog):
         )
         selection = await wait_for_multiple_reactions(ctx, prompt, emojis)
 
-        if selection == EMOJI_KEYCAP_1:
-            with session_scope() as session:
-                user = get_user(session, ctx.author.id)
-                if user.get_reward:
-                    await ctx.send(f"{ctx.author.mention}, 이미 보상을 선택했습니다.")
-                    return
+        with session_scope() as session:
+            user = get_user(session, ctx.author.id)
+            if user.formlink is not None:
+                await self.send_formlink(ctx, user.get_info())
+                return
 
+            if user.get_reward:
+                await ctx.send(f"{ctx.author.mention}, 이미 보상을 선택했습니다.")
+                return
+
+            if selection == EMOJI_KEYCAP_1:
                 user.get_reward = True
                 session.commit()
 
@@ -138,9 +171,21 @@ class RewardManager(commands.Cog):
                     f"{ctx.author.mention}, {5 * sticker}<:fortepoint:737564157473194014>를 드렸습니다!",
                     embed=forte_embed,
                 )
-        elif selection == EMOJI_KEYCAP_2:
-            # TODO: 선착순 여부도 확인, 구글 폼 링크를 생성
-            print("STICKER")
+            elif selection == EMOJI_KEYCAP_2:
+                if count_formlinks(session) >= FORMLINK_MAX:
+                    await ctx.send(
+                        f"{ctx.author.mention}, 선착순 {FORMLINK_MAX}명이 다 차서 현물 스티커 신청은 마감되었습니다. 불편을 드려 죄송합니다."
+                    )
+                    return
+
+                user.get_reward = True
+                user.formlink = make_random_string() + str(user.id)[-4:]
+                self.bot.logger.info(
+                    f"reward {ctx.author.id} - make_link {user.formlink}"
+                )
+                session.commit()
+
+                await self.send_formlink(ctx, user.get_info())
 
     def _check_and_give_xsi_reward(self, ctx) -> Optional[Awaitable[discord.Message]]:
         """성공시, 사용자에게 반환할 디스코드 메시지를 반환합니다."""
@@ -166,6 +211,20 @@ class RewardManager(commands.Cog):
                 ).set_footer(
                     text="1/13~1/15 동안 크시 호감도를 50 올릴 때마다 스티커 1장이 지급됩니다. (최대 5장)"
                 ),
+            )
+
+    async def send_formlink(self, ctx, user_info: str):
+        url = os.getenv("STICKER_FORM_URL").format(parse.quote(user_info))
+        try:
+            await ctx.author.send(
+                embed=discord.Embed(
+                    title="스티커 받으러 가기", description=f"[클릭해서 구글 폼으로 이동]({url})"
+                )
+            )
+            await ctx.send(f"{ctx.author.mention}, 개인 메시지를 확인해주세요.")
+        except discord.Forbidden:
+            await ctx.send(
+                f"{ctx.author.mention}, 이 서버에서 멤버가 보내는 개인 메시지를 허용한 뒤 다시 `ㅋ 보상` 명령어를 입력하세요."
             )
 
 
