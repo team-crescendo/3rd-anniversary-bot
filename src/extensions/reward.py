@@ -86,6 +86,18 @@ class RewardManager(commands.Cog):
 
             await ctx.send(f"{ctx.author.mention}, {user}")
 
+    @commands.command(name="보상검색")
+    @commands.check(check_admin)
+    async def search_reward(self, ctx, discord_user: discord.User):
+        with session_scope() as session:
+            user = get_user(session, discord_user.id)
+            if user is None or user.formlink is None:
+                await ctx.send(f"{ctx.author.mention}, 해당 사용자는 현물 교환 신청을 안 했습니다.")
+                return
+
+            url = os.getenv("STICKER_FORM_URL").format(parse.quote(user.get_info()))
+            await ctx.send(f"{ctx.author.mention}, {discord_user.mention}: {url}")
+
     @commands.command(name="보상")
     async def get_reward(self, ctx):
         xsi_prompt = self._check_and_give_xsi_reward(ctx)
@@ -223,12 +235,15 @@ class RewardManager(commands.Cog):
     async def send_formlink(self, ctx, user_info: str):
         url = os.getenv("STICKER_FORM_URL").format(parse.quote(user_info))
         try:
+            await ctx.send(
+                f"{ctx.author.mention}, 스티커 현물 교환 신청이 완료되었습니다.\n"
+                + "DM이 오지 않는 경우 관리자에게 문의해주세요."
+            )
             await ctx.author.send(
                 embed=discord.Embed(
                     title="스티커 받으러 가기", description=f"[클릭해서 구글 폼으로 이동]({url})"
                 )
             )
-            await ctx.send(f"{ctx.author.mention}, 개인 메시지를 확인해주세요.")
         except discord.Forbidden:
             await ctx.send(
                 f"{ctx.author.mention}, 이 서버에서 멤버가 보내는 개인 메시지를 허용한 뒤 다시 `ㅋ 보상` 명령어를 입력하세요."
