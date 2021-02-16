@@ -1,48 +1,46 @@
-# Discord Chatbot Template
-단순한 기능의 디스코드 챗봇을 구현하는 데 적합한 소스 코드 템플릿입니다.
+# Team Crescendo 3rd Anniversary Bot
+
+팀 크레센도는 3주년(2021. 1. 6.)을 맞이하여 [스티커를 모아라!](https://cafe.naver.com/teamcrescendocafe/1863) 이벤트를 진행했습니다.
+이 이벤트를 원활히 운영하기 위한 디스코드 챗봇을 개발했습니다.
+
+## Archived
+
+이 프로젝트는 팀 크레센도 내부에서 사용하기 위한 목적으로만 개발되었습니다.
+따라서 외부인은 이 프로젝트에서 개발한 모든 기능을 이용할 수는 없습니다.
+
+디스코드 챗봇을 개발하는 과정에 참고가 되고자 소스 코드를 공개했습니다.
+단, 3주년 이벤트는 이미 종료된 프로젝트기 때문에 추가적인 유지보수는 진행하지 않습니다.
 
 ## Getting Started
 
 ### Prerequisite
-이 프로젝트는 Python으로 챗봇을 개발하는 사람을 위해 구성되었습니다.
-`async / await` 구문을 사용하기 위해 최소 Python 3.7 이상의 개발 환경이 필요합니다.
 
-통합 개발 환경(IDE)으로는 [VSCode](https://code.visualstudio.com/)를 권장합니다.
-VSCode 사용자의 경우, 워크스페이스 전용 설정을 다음과 같이 불러옵니다.
+#### Database Management System
 
-```
-$ cd .vscode
-$ cp settings.example.json settings.json
-```
+사용자의 스티커를 관리하기 위한 DBMS로 Postgres를 사용합니다.
+자세한 내용은 [데이터베이스 연결 가이드](https://github.com/team-crescendo/3rd-anniversary-bot/blob/master/docs/CONNECT_DATABASE.md)를 참고해주세요.
 
-### Installing
-해당 템플릿을 운영하기 위해 필요한 패키지를 설치합니다.
+#### Environment Variables
 
-```
-$ pip install -r requirements.txt
-```
-
-디스코드 봇을 운영하기 위해서는 봇 계정(토큰)이 필요합니다.
-[디스코드 개발자 사이트](https://discordapp.com/developers/docs/intro)에서
-봇 토큰을 발급받은 뒤 이를 형식에 맞춰 `.env`에 넣습니다.
-`.env` 양식은 `.env.example`을 참고하여 작성할 수 있습니다.
-
-```
-$ echo "BOT_TOKEN=your.bot.token" >> .env
-```
+챗봇이 원활히 구동하기 위해서는 환경 변수를 통해 추가 정보를 제공해야합니다.
+`.env.example` 양식을 참고하여 `.env` 파일을 적절히 작성해야합니다.
 
 ## Deployment
-챗봇을 운영할 서버에 git 저장소를 생성하고, 다음 스크립트를 실행합니다.
 
-```
-$ nohup python src/bot.py &
+Docker를 이용해서 간편히 배포할 수 있습니다.
+아래 스크립트는 [데이터베이스 연결 가이드](https://github.com/team-crescendo/3rd-anniversary-bot/blob/master/docs/CONNECT_DATABASE.md)에 따라 이미 `postgres` 컨테이너가 가동 중이라고 가정합니다.
+
+```sh
+docker network create 3rd-anniv
+docker network connect 3rd-anniv postgres
+docker build -t crsd-3rd-anniv:latest .
+docker run --rm -d -v "$(pwd)/.env:/.env" --name 3rd-anniv-bot crsd-3rd-anniv:latest
+docker network connect 3rd-anniv 3rd-anniv-bot
 ```
 
 ## Built with
-* [discord.py](https://discordpy.readthedocs.io/en/latest/) - 디스코드 봇 API 래퍼
-* [Black](https://github.com/psf/black) - 파이썬 코드 포매터
-* [flake8](https://flake8.pycqa.org/en/latest/) - 파이썬 린터
-* [isort](https://github.com/timothycrosley/isort) - 파이썬 import문 정렬 라이브러리
+* [team-crescendo/discord-py-boilerplate](https://github.com/team-crescendo/discord-py-boilerplate)
+* [sqlalchemy](https://docs.sqlalchemy.org/en/13/)
 
 ## Authors
 * [@GBS-Skile](https://github.com/GBS-Skile),
